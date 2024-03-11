@@ -328,7 +328,7 @@ cdg	call time (timestring1(11:23))
 	    endif
 
 ! ... update the "contribution" and "slop" limits
-	    call limits_update(main,vertex,orig,recon,doing_deuterium,
+	    call limits_update(main,vertex,orig,recon,doing_deuterium,doing_deuterium_n,
      >		doing_pion,doing_kaon,doing_delta,doing_rho,contrib,slop)
 
 	  endif ! <success>
@@ -382,7 +382,7 @@ c	call time (timestring2(11:23))
 !	genvol_inclusive = genvol	!may want dOmega, or dE*dOmega
 
 ! ... 2-fold to 5-fold.
-	if (doing_deuterium.or.doing_heavy.or.doing_pion.or.doing_kaon
+	if (doing_deuterium.or.doing_deuterium_n.or.doing_heavy.or.doing_pion.or.doing_kaon
      >      .or.doing_delta.or.doing_rho .or. doing_semi) then
 	  genvol = genvol * domega_p * (gen%e%E%max-gen%e%E%min)
 	endif
@@ -666,6 +666,8 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
 	    write(iun,*) '              ****--------  H(e,e''p)  --------****'
 	  else if (doing_deuterium) then
 	    write(iun,*) '              ****--------  D(e,e''p)  --------****'
+	  else if (doing_deuterium_n) then
+	    write(iun,*) '              ****--------  D(e,e''n)  --------****'
 	  else if (doing_heavy) then
 	    write(iun,*) '              ****--------  A(e,e''p)  --------****'
 	  else
@@ -873,7 +875,8 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
 	write(iun,'(5x,2(2x,a19,''='',i2))') 'which_pion', which_pion,
      >		'which_kaon', which_kaon
 	write(iun,'(5x,3(2x,a19,''='',l2))') 'doing_hyd_elast', doing_hyd_elast,
-     >		'doing_deuterium', doing_deuterium, 'doing_heavy', doing_heavy
+     >		'doing_deuterium', doing_deuterium,'doing_deuterium_n', 
+     >           doing_deuterium_n, 'doing_heavy', doing_heavy
 	write(iun,'(5x,3(2x,a19,''='',l2))') 'doing_hydpi', doing_hydpi,
      >          'doing_deutpi', doing_deutpi, 'doing_hepi', doing_hepi
 	write(iun,'(5x,3(2x,a19,''='',l2))') 'doing_hydkaon', doing_hydkaon,
@@ -1033,7 +1036,7 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
      >      contrib%vertex%Em%lo, contrib%vertex%Em%hi, 'MeV'
 	write(iun,9917) 'Pm', VERTEXedge%Pm%min, VERTEXedge%Pm%max,
      >       contrib%vertex%Pm%lo, contrib%vertex%Pm%hi, 'MeV/c'
-	if ((doing_deuterium .or. doing_pion .or. doing_kaon .or. doing_delta) .and. using_rad) then
+	if ((doing_deuterium .or. doing_deuterium_n .or. doing_pion .or. doing_kaon .or. doing_delta) .and. using_rad) then
 	   write(iun,*) '      *** NOTE: sumEgen.min only used in GENERATE_RAD'
 	endif
 
@@ -1365,7 +1368,7 @@ c	enddo
 
 ! ... multiple scattering
 
-	if (mc_smear) then
+	if (mc_smear .and. main%target%teff(3) .gt.0) then
 	  beta = orig%p%p/orig%p%E
 	  call target_musc(orig%p%p, beta, main%target%teff(3), dangles)
 	else
@@ -1469,7 +1472,33 @@ C DJG moved this to the last part of generate!!!
 	    call mc_shms(spec%p%P, spec%p%theta, delta_P_arm, x_P_arm,
      >		y_P_arm, z_P_arm, dx_P_arm, dy_P_arm, xfp, dxfp, yfp, dyfp,
      >		m2, mc_smear, mc_smear, doing_decay,
-     >		ntup%resfac, xtar_init_P, ok_P_arm, pathlen, hadron_arm)
+c<<<<<<< HEAD
+c     >		ntup%resfac, xtar_init_P, ok_P_arm, pathlen, hadron_arm)
+c=======
+     >		ntup%resfac, fry, ok_P_arm, pathlen, hadron_arm, use_first_cer)
+	  else if (hadron_arm.eq.7) then
+             if (abs(spec%p%phi-pi/2) .eq. 10.) then
+	     zhadron = -recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta+recon%p%yptar)+sin(spec%p%theta)) ! recon.p.z is really ytgt
+	     else
+	     zhadron = recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta-recon%p%yptar)+sin(spec%p%theta))
+	     endif
+	    call mc_calo(spec%p%p, spec%p%theta, delta_p_arm, x_p_arm,
+     >		y_p_arm, z_p_arm, dx_p_arm, dy_p_arm, xfp, dxfp, yfp, dyfp,
+     >		m2, mc_smear, mc_smear, doing_decay,
+     >		ntup%resfac, frx, fry, ok_p_arm, pathlen, using_tgt_field,
+     >          zhadron,hadron_arm,drift_to_cal2)
+	  else if (hadron_arm .eq. 8) then
+             if (abs(spec%p%phi-pi/2) .eq. 10.) then
+	     zhadron = -recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta+recon%p%yptar)+sin(spec%p%theta)) ! recon.p.z is really ytgt
+	     else
+	     zhadron = recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta-recon%p%yptar)+sin(spec%p%theta))
+	     endif
+	    call mc_calo2(spec%p%p, spec%p%theta, delta_e_arm, x_e_arm,
+     >		y_p_arm, z_p_arm, dx_p_arm, dy_p_arm, xfp, dxfp, yfp, dyfp,
+     >		m2, mc_smear, mc_smear, doing_decay,
+     >		ntup%resfac, frx, fry, ok_p_arm, pathlen, using_tgt_field,
+     >          zhadron,hadron_arm,drift_to_cal2)
+c>>>>>>> de9c643d7ae0f706beab49e38ac8132eef1920d8
 	  endif
 
 
@@ -1560,7 +1589,7 @@ C	  recon%p%delta = (recon%p%P-spec%p%P)/spec%p%P*100.
 
 ! ... multiple scattering
 
-	if (mc_smear) then
+	if (mc_smear.and. main%target%teff(2) .gt.0) then
 	  call target_musc(orig%e%p, beta_electron, main%target%teff(2), dangles)
 	else
 	  dangles(1)=0.0
@@ -1653,8 +1682,13 @@ C	  recon%p%delta = (recon%p%P-spec%p%P)/spec%p%P*100.
 	    call mc_shms(spec%e%P, spec%e%theta, delta_E_arm, x_E_arm,
      >		y_E_arm, z_E_arm, dx_E_arm, dy_E_arm, xfp, dxfp, yfp, dyfp,
      >		me2, mc_smear, mc_smear, .false.,
+c<<<<<<< HEAD
      >		tmpfact, xtar_init_E, ok_E_arm, pathlen, electron_arm)
 	  else if (electron_arm.eq.7 .or. electron_arm .eq. 8) then
+c=======
+c     >		tmpfact, fry, ok_E_arm, pathlen, electron_arm, use_first_cer)
+c	  else if (electron_arm.eq.7) then
+c>>>>>>> de9c643d7ae0f706beab49e38ac8132eef1920d8
              if (abs(spec%p%phi-pi/2) .eq. 10.) then
 	     zhadron = -recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta+recon%p%yptar)+sin(spec%p%theta)) ! recon.p.z is really ytgt
 	     else
@@ -1665,6 +1699,17 @@ C	  recon%p%delta = (recon%p%P-spec%p%P)/spec%p%P*100.
      >		m2, mc_smear, mc_smear, doing_decay,
      >		ntup%resfac, frx, fry, ok_e_arm, pathlen, using_tgt_field,
      >          zhadron,electron_arm,drift_to_cal)
+	  else if (electron_arm .eq. 8) then
+             if (abs(spec%p%phi-pi/2) .eq. 10.) then
+	     zhadron = -recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta+recon%p%yptar)+sin(spec%p%theta)) ! recon.p.z is really ytgt
+	     else
+	     zhadron = recon%p%z*(cos(spec%p%theta)/tan(spec%p%theta-recon%p%yptar)+sin(spec%p%theta))
+	     endif
+	    call mc_calo2(spec%e%p, spec%e%theta, delta_e_arm, x_e_arm,
+     >		y_e_arm, z_e_arm, dx_e_arm, dy_e_arm, xfp, dxfp, yfp, dyfp,
+     >		m2, mc_smear, mc_smear, doing_decay,
+     >		ntup%resfac, frx, fry, ok_e_arm, pathlen, using_tgt_field,
+     >          zhadron,electron_arm,drift_to_cal2)
 	  endif
 	  ntup%resfac=ntup%resfac+tmpfact
 

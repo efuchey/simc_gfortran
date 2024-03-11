@@ -143,7 +143,11 @@
         u(i) = uu (i)
       ENDDO
       DO i=7,9 
+c<<<<<<< HEAD
         u (i) = 0.
+c=======
+c         u (i) = 0.
+c>>>>>>> de9c643d7ae0f706beab49e38ac8132eef1920d8
       ENDDO
 
       ! calculate Bdl  ( B_x^2+B_y^2+B_z^2 )
