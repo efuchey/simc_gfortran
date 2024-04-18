@@ -1,4 +1,4 @@
-	subroutine mc_calo (p_spec, th_spec, dpp, x, y, z, dxdz, dydz,
+	subroutine mc_calo2 (p_spec, th_spec, dpp, x, y, z, dxdz, dydz,
      >		x_fp, dx_fp, y_fp, dy_fp, m2,
      >		ms_flag, wcs_flag, decay_flag, resmult, frx,fry, ok_spec, 
      >          pathlen,using_tgt_field,
@@ -21,13 +21,13 @@ C-______________________________________________________________________________
 
 	include '../constants.inc'
         include '../spectrometers.inc'
-	include 'struct_calo.inc'
+	include 'struct_calo2.inc'
 
 ! Spectrometer definitions
 
 	integer*4 spectr
-	parameter (spectr = 7)		!calo is spec #7 or 8.
-	integer*4 spect_side ! 7 (HMS side) or 8 (SOS side)
+	parameter (spectr = 8)		!calo is 7 or 8.
+	integer*4 spect_side ! 7 ( beam right side) or 8 (beam left side)
 
 ! Collimator (octagon) dimensions.
 
@@ -36,10 +36,10 @@ C-______________________________________________________________________________
 
 
 ! No collimator, but use collimator dimensions to define calo
-	parameter (h_entr = 20.0)
-	parameter (v_entr = 50.0)
-	parameter (h_exit = 20.0)
-	parameter (v_exit = 50.0)
+	parameter (h_entr = 100.0)
+	parameter (v_entr = 300.0)
+	parameter (h_exit = 100.0)
+	parameter (v_exit = 300.0)
 
 ! Math constants
 
@@ -100,7 +100,7 @@ C-______________________________________________________________________________
 
 	ok_spec = .false.
 	dflag = .false.			!particle has not decayed yet
-	caloSTOP_trials = caloSTOP_trials + 1
+	calo2STOP_trials = calo2STOP_trials + 1
 
 ! Save spectrometer coordinates.
 
@@ -123,11 +123,11 @@ C-______________________________________________________________________________
 	  zdrift = drift_to_cal
 	  call project(xs,ys,zdrift,decay_flag,dflag,m2,p,pathlen)
 	  if (abs(ys).gt.h_entr) then
-	    caloSTOP_slit_hor = caloSTOP_slit_hor + 1
+	    calo2STOP_slit_hor = calo2STOP_slit_hor + 1
 	    goto 500
 	  endif
 	  if (abs(xs).gt.v_entr) then
-	    caloSTOP_slit_vert = caloSTOP_slit_vert + 1
+	    calo2STOP_slit_vert = calo2STOP_slit_vert + 1
 	    goto 500
 	  endif
 
@@ -165,7 +165,7 @@ c	  call mc_calo_recon(dpp_recon,dth_recon,dph_recon,y_recon,fry,delta_y,delta_z
  ! Fill output to return to main code
 	  dpp = dpps
 	  ok_spec = .true.
-	  caloSTOP_successes = caloSTOP_successes + 1
+	  calo2STOP_successes = calo2STOP_successes + 1
 
 500	continue
 

@@ -1,4 +1,4 @@
-	subroutine limits_update(main,vertex,orig,recon,doing_deuterium,
+	subroutine limits_update(main,vertex,orig,recon,doing_deuterium,doing_deuterium_n,
      >		doing_pion,doing_kaon,doing_delta,doing_rho,contrib,slop)
 
 	implicit none
@@ -10,7 +10,7 @@
 	type(contribtype):: contrib
 	type(sloptype):: slop
 	integer i
-	logical	doing_deuterium, doing_pion, doing_kaon, doing_delta, doing_rho
+	logical	doing_deuterium, doing_deuterium_n, doing_pion, doing_kaon, doing_delta, doing_rho
 
 ! Update the "contribution limits" records
 
@@ -24,7 +24,7 @@
 	call update_range(main%Trec, contrib%gen%Trec)
 
 ! ........ another tricky shift
-	if (doing_deuterium .or. doing_pion .or. doing_kaon .or. doing_delta .or. doing_rho) then
+	if (doing_deuterium .or. doing_deuterium_n .or. doing_pion .or. doing_kaon .or. doing_delta .or. doing_rho) then
 	  call update_range(vertex%e%E-main%Ein_shift,contrib%gen%sumEgen)
 	else
 	  call update_range(vertex%e%E+vertex%p%E-main%Ein_shift,contrib%gen%sumEgen)
@@ -122,6 +122,9 @@
 	type(event_main):: main
 	type(event):: vertex, orig
 
+	real*8 vxi,vyi,vzi,vEin
+	common /reconz/ vxi,vyi,vzi,vEin
+
 	real*8 nsig_max
 	parameter(nsig_max=3.0e0)      !max #/sigma for gaussian ran #s.
 
@@ -168,6 +171,11 @@ C DJG Note that this means that +fry points down. I will make frx point left.
 	main%target%rastery = t6	!'raster' contribution to vert. pos.
 	main%target%rasterx = t5	! points right as you look downstream  - need to flip sign later.
 
+	! true vertex co-ordinates
+	vxi = -main%target%x
+	vyi = -main%target%y
+	vzi = main%target%z
+
 ! Take fluctuations of the beam energy into account, and remember to correct
 ! for ionization loss in the target and Coulomb acceleration of incoming
 ! electron.  Remove targ.zoffset from the z position of the scattering
@@ -185,6 +193,9 @@ C modified 5/15/06 for poinct
 	endif
 	vertex%Ein = Ebeam + (grnd()-0.5)*dEbeam +
      >		main%target%Coulomb - main%target%Eloss(1)
+
+	! corrected beam energy
+	vEin = vertex%Ein
 
 ! ... deterimine known variation in Ein from Ebeam_vertex_ave and in
 ! ... Ee due to Coulomb energy to compare limits to generated event by event.
@@ -205,6 +216,8 @@ C modified 5/15/06 for poinct
 ! doing_hyd_elast: Generate electron angles. Solve for everything else.
 ! doing_deuterium: Generate electron energy and angles, proton angles.
 !	Solve for proton momentum, p_fermi.
+! doing_deuterium_n: Generate electron energy and angles, neutron angles.
+!	Solve for proton momentum, p_fermi. ** Should n_fermi be different that p_fermi?
 ! doing_eep, A>2: generate electron and hadron energy, angles. Solve for Em,Pm.
 ! doing_pion: generate electron energy and angles, hadron angles, p_fermi, Em.
 !	Solve for hadron momentum.
@@ -220,7 +233,8 @@ C modified 5/15/06 for poinct
 !               E       yptar   xptar   E       yptar   xptar   p_fermi	Em
 !
 !H(e,e'p)		X	X
-!D(e,e'p)	X	X	X		X	X
+!D(e,e'p)	X	X	X		X	X       
+!D(e,e'n)	X	X	X		X	X       
 !A(e,e'p)	X	X	X	X	X	X
 !----------------------------------------------------------------------
 !H(e,e'pi)	X	X	X		X	X
@@ -259,7 +273,7 @@ C modified 5/15/06 for poinct
 	vertex%e%xptar=gen%e%xptar%min+grnd()*(gen%e%xptar%max-gen%e%xptar%min)
 
 ! Generate Hadron Angles (all but H(e,e'p)):
-	if (doing_deuterium.or.doing_heavy.or.doing_pion.or.doing_kaon
+	if (doing_deuterium.or.doing_deuterium_n.or.doing_heavy.or.doing_pion.or.doing_kaon
      >         .or.doing_delta.or.doing_semi) then
 	  vertex%p%yptar=gen%p%yptar%min+grnd()*
      >  	(gen%p%yptar%max-gen%p%yptar%min)
@@ -279,11 +293,11 @@ C modified 5/15/06 for poinct
 	endif
 
 ! Generate Electron Energy (all but hydrogen elastic)
-	if (doing_deuterium.or.doing_heavy.or.doing_pion.or.doing_kaon
+	if (doing_deuterium.or.doing_deuterium_n.or.doing_heavy.or.doing_pion.or.doing_kaon
      >       .or.doing_delta.or.doing_rho.or.doing_semi) then
 	  Emin=gen%e%E%min
 	  Emax=gen%e%E%max
-	  if (doing_deuterium .or. doing_pion .or. doing_kaon .or. doing_delta .or. doing_rho) then
+	  if (doing_deuterium .or. doing_deuterium_n .or. doing_pion .or. doing_kaon .or. doing_delta .or. doing_rho) then
 	    Emin = max(Emin,gen%sumEgen%min)
 	    Emax = min(Emax,gen%sumEgen%max)
 	  else if (doing_heavy) then		! A(e,e'p)
@@ -542,7 +556,7 @@ c PB: from resmod507 in first call to semi_physics.f
 	  vertex%p%delta = (vertex%p%P - spec%p%P)*100./spec%p%P
 	  if (debug(4)) write(6,*)'comp_ev: at 6'
 
-	elseif (doing_deuterium) then	!need Ep, and a jacobian.
+	elseif (doing_deuterium.or.doing_deuterium_n) then	!need Ep, and a jacobian.
 
 	  vertex%Em = targ%Mtar_struck + targ%Mrec - targ%M	!=2.2249 MeV
 	  vertex%Mrec = targ%M - targ%Mtar_struck + vertex%Em	!=targ.Mrec
@@ -912,7 +926,7 @@ CDJG Calculate the "Collins" (phi_pq+phi_targ) and "Sivers"(phi_pq-phi_targ) ang
 
 	if (doing_hyd_elast) then
 	  vertex%Trec = 0.0
-	else if (doing_deuterium) then
+	else if (doing_deuterium.or.doing_deuterium_n) then
 	  vertex%Pm = vertex%Pmiss
 	  vertex%Trec = sqrt(vertex%Mrec**2 + vertex%Pm**2) - vertex%Mrec
 	else if (doing_heavy) then
@@ -1319,7 +1333,7 @@ CDJG Calculate the "Collins" (phi_pq+phi_targ) and "Sivers"(phi_pq-phi_targ) ang
 	if (doing_hyd_elast) then
 	  recon%Trec = 0.0
 	  recon%Em = recon%nu + targ%M - recon%p%E - recon%Trec
-	else if (doing_deuterium .or. doing_heavy) then
+	else if (doing_deuterium .or. doing_deuterium_n .or. doing_heavy) then
 	  recon%Trec = sqrt(recon%Pm**2+targ%Mrec**2) - targ%Mrec
 	  recon%Em = recon%nu + targ%Mtar_struck - recon%p%E - recon%Trec
 	else if (doing_pion .or. doing_kaon .or. doing_delta .or. doing_rho) then
@@ -1343,7 +1357,8 @@ CDJG Calculate the "Collins" (phi_pq+phi_targ) and "Sivers"(phi_pq-phi_targ) ang
 	integer		i, iPm1
 	real*8		a, b, r, frac, peepi, peeK, peedelta, peerho, peepiX
 	real*8		survivalprob, semi_dilution
-	real*8		weight, width, sigep, deForest, tgtweight
+	real*8		weight, width, sigep, deForest, tgtweight, wtfrac_RS
+	real*8          grnd	!random # generator.
 	logical		force_sigcc, success
 	type(event_main):: main
 	type(event)::	vertex, vertex0, recon
@@ -1372,7 +1387,7 @@ CDJG Calculate the "Collins" (phi_pq+phi_targ) and "Sivers"(phi_pq-phi_targ) ang
 	else if (use_benhar_sf.and.doing_heavy) then ! Doing Spectral Functions
 	   call sf_lookup_diff(vertex%Em, vertex%Pm, weight)
 	   main%SF_weight = targ%Z*transparency*weight
- 	else if (doing_deuterium .or. (doing_heavy.and.(.not.use_benhar_sf))) then
+ 	else if (doing_deuterium .or. doing_deuterium_n .or. (doing_heavy.and.(.not.use_benhar_sf))) then
 	  main%SF_weight = 0.0
 	  do i=1,nrhoPm
 	    weight = 0.0
@@ -1421,12 +1436,16 @@ CDJG Calculate the "Collins" (phi_pq+phi_targ) and "Sivers"(phi_pq-phi_targ) ang
 	  main%sigcc_recon = 1.0
 
 	elseif (doing_hyd_elast) then
-	  main%sigcc = sigep(vertex)
-	  main%sigcc_recon = sigep(recon)
+	  main%sigcc = sigep(vertex,1)
+	  main%sigcc_recon = sigep(recon,1)
 
 	elseif (doing_deuterium.or.doing_heavy) then
-	  main%sigcc = deForest(vertex)		
-	  main%sigcc_recon = deForest(recon)
+	  main%sigcc = deForest(vertex,1)		
+	  main%sigcc_recon = deForest(recon,1)
+
+	elseif (doing_deuterium_n) then
+	  main%sigcc = deForest(vertex,2)		
+	  main%sigcc_recon = deForest(recon,2)
 
 	elseif (doing_pion) then
 	  main%sigcc = peepi(vertex,main)
@@ -1530,7 +1549,34 @@ C If using Coulomb corrections, include focusing factor
 	if (debug(5))write(6,*) 'gen_weight = ',main%gen_weight,
      >		main%jacobian,main%sigcc
 
-	success = .true.
+
+! Implementing Rejection Sampling (RS):
+! ----
+! User must provide a maximum weight (max_weight_RS), which they
+! can determine by generating some number of events (~100K-1M) in the desired
+! generation limit. RS then throws flat in the chosen phase space
+! and keeps or rejects each event by probability weight/max_weight_RS.
+! The motivation is to write out only the events with significant weight.
+! ----
+! NOTE: Normalization with RS is tricky. main%weight should be replaced
+! with the max_weight_RS for this purpose. max_weight_RS value can be
+! read from "hist" file for post analysis. 	
+
+	if (using_RS) then
+	   wtfrac_RS = main%weight/max_weight_RS
+	   if (wtfrac_RS.gt.1.) then
+	      write(6,*) 'WARNING: main%weight > max_weight_RS, Ratio = ',wtfrac_RS
+	      wt_gt_maxwt_RS = wt_gt_maxwt_RS + 1
+	      if (main%weight.gt.obs_maxwt_RS) obs_maxwt_RS = main%weight
+	   endif
+	   if (wtfrac_RS.ge.grnd()) then
+	      success = .true.
+	   else
+	      success = .false.
+	   endif
+	else
+	   success = .true.
+	endif
 
 	if (debug(2)) write(6,*)'comp_main: ending, success =',success
 	return

@@ -216,7 +216,6 @@ c	  targ%Coulomb%max = targ%Coulomb_constant * 3.0
 	SPedge%p%yptar%max = SPedge%p%yptar%max + slop%MC%p%yptar%used
 	SPedge%p%xptar%min = SPedge%p%xptar%min - slop%MC%p%xptar%used
 	SPedge%p%xptar%max = SPedge%p%xptar%max + slop%MC%p%xptar%used
-
 ! Compute TRUE edges -- distortions in the target come into play
 
 	edge%e%E%min = (1.+SPedge%e%delta%min/100.)*spec%e%P +
@@ -267,7 +266,6 @@ c	  targ%Coulomb%max = targ%Coulomb_constant * 3.0
 	edge%p%yptar%max = SPedge%p%yptar%max + targ%musc_max(3)
 	edge%p%xptar%min = SPedge%p%xptar%min - targ%musc_max(3)
 	edge%p%xptar%max = SPedge%p%xptar%max + targ%musc_max(3)
-
 ! Edges on values of Em and Pm BEFORE reconstruction% Need to apply slop to
 ! take into account all transformations from ORIGINAL TRUE values to
 ! RECONSTRUCTED TRUE values --> that includes: (a) reconstruction slop on
@@ -322,6 +320,11 @@ c	  targ%Coulomb%max = targ%Coulomb_constant * 3.0
 	  VERTEXedge%Pm%min = 0.0
 	  VERTEXedge%Pm%max = 0.0
 	else if (doing_deuterium) then
+	  VERTEXedge%Em%min = Mp + Mn - targ%M		!2.2249 MeV, I hope.
+	  VERTEXedge%Em%max = Mp + Mn - targ%M
+	  VERTEXedge%Pm%min = 0.0
+	  VERTEXedge%Pm%max = max(abs(Pm_theory(1)%min),abs(Pm_theory(1)%max))
+	else if (doing_deuterium_n) then
 	  VERTEXedge%Em%min = Mp + Mn - targ%M		!2.2249 MeV, I hope.
 	  VERTEXedge%Em%max = Mp + Mn - targ%M
 	  VERTEXedge%Pm%min = 0.0
@@ -472,7 +475,7 @@ c	   gen%sumEgen%min = Ebeam_min - VERTEXedge%Trec%max - VERTEXedge%Trec_struck%
 	if (doing_hyd_elast) then
 	  gen%e%E%min = edge%e%E%min
 	  gen%e%E%max = edge%e%E%max + Egamma2_max
-	else if (doing_deuterium .or. doing_pion .or. doing_kaon 
+	else if (doing_deuterium .or. doing_deuterium_n .or. doing_pion .or. doing_kaon 
      >      .or. doing_rho .or. doing_delta) then
 	  gen%e%E%min = gen%sumEgen%min
 	  gen%e%E%max = gen%sumEgen%max
@@ -495,7 +498,7 @@ c	   gen%sumEgen%min = Ebeam_min - VERTEXedge%Trec%max - VERTEXedge%Trec_struck%
 ! ... P arm GENERATION limits from sumEgen.  Not used for any case
 ! ... except doing_heavy, but need to define for code that writes out limits.
 
-	if (doing_hyd_elast.or.doing_deuterium.or.doing_pion.or.doing_kaon .or.
+	if (doing_hyd_elast.or.doing_deuterium.or.doing_deuterium_n.or.doing_pion.or.doing_kaon .or.
      >    doing_rho .or. doing_delta) then
 	  gen%p%E%min = edge%p%E%min
 	  gen%p%E%max = edge%p%E%max + Egamma3_max
@@ -776,21 +779,30 @@ c	exponentiate = use_expon
      >		* gamma(one+lambda(3)) / gamma(one+g_int)
 
 ! External constants
-
 	do i = 1, 2
 	  c_ext(i) = bt(i)/e(i)**bt(i)/gamma(one+bt(i))
 	enddo
 	c_ext(3) = 0.0
 	g_ext = bt(1) + bt(2)
-	c_ext(0) = c_ext(1)*c_ext(2) * g_ext / bt(1)/bt(2)
-	c_ext(0) = c_ext(0)*gamma(one+bt(1))*gamma(one+bt(2))/gamma(one+g_ext)
+	if ( bt(2) .ne. 0) then
+            c_ext(0) = c_ext(1)*c_ext(2) * g_ext / bt(1)/bt(2)
+	     c_ext(0) = c_ext(0)*gamma(one+bt(1))*gamma(one+bt(2))/gamma(one+g_ext)
+	else 
+             c_ext(0) = c_ext(1)
+	endif
 
 ! Internal + external constants
 
+	if ( bt(2) .ne. 0) then
 	do i = 1, 2
 	  c(i) = c_int(i) * c_ext(i) * g(i)/lambda(i)/bt(i)
      >		* gamma(one+lambda(i))*gamma(one+bt(i))/gamma(one+g(i))
 	enddo
+        else
+	  c(1) = c_int(1) * c_ext(1) * g(1)/lambda(1)/bt(1)
+     >		* gamma(one+lambda(1))*gamma(one+bt(1))/gamma(one+g(1))
+	  c(2) = c_int(2)
+	   endif
 	c(3) = c_int(3)
 
 ! Finally, constant for combined tails
@@ -831,7 +843,7 @@ c	exponentiate = use_expon
 
 ! ... open the file
 	if ( nint(targ%A) .eq. 2) then
-	  theory_file='h2.theory'
+	  theory_file='h2.new_theory'
 	else if ( nint(targ%A) .eq. 12) then
 	  theory_file='c12.theory'
 	else if ( nint(targ%A) .eq. 56) then
@@ -880,7 +892,7 @@ c	open(unit=1,file=theory_file,status='old',readonly,shared,iostat=iok)
 	enddo
 
 ! ... are we doing deuterium? (i.e. only using a 1D spectral function)
-	doing_deuterium = nrhoPm.eq.1 .and. E_Fermi.lt.1.0
+	if (.not.doing_deuterium_n) doing_deuterium = nrhoPm.eq.1 .and. E_Fermi.lt.1.0
 
 ! ... renormalize the momentum distributions
 	do m=1, nrhoPm

@@ -3,7 +3,7 @@
 ! dbase_read reads the input file and sets the run-time flags for the run.
 ! Note that there are four INDEPENDENT ways to run SIMC.
 !
-! 1. doing_eep: (e,e'p) subcases:doing_hyd_elast, doing_deuterium, doing_heavy
+! 1. doing_eep: (e,e'p) subcases:doing_hyd_elast, doing_deuterium, doing_deuterium_n, doing_heavy
 !
 ! 2. doing_kaon:(e,e'K) subcases:doing_hydkaon, doing_deutkaon,doing_hekaon.
 !	which_kaon= 0/ 1/ 2 for Lambda/Sigam0/Sigma- quasifree.
@@ -197,6 +197,10 @@ C DJG:
 	   doing_herho = (nint(targ%A).eq.3)
 	   doing_eep=.false.
 
+	else if (doing_deuterium_n) then ! D(ee'n)
+	  Mh=Mn
+	  doing_eep = .true.
+
 	else		!doing_eep if nothing else set.
 	  Mh=Mp
 	  doing_eep = .true.
@@ -237,10 +241,10 @@ C DJG:
 	  stop 'I dont know what phi should be for the electron arm'
 	endif
 
-	if (hadron_arm.eq.1 .or. hadron_arm.eq.3) then
+	if (hadron_arm.eq.1 .or. hadron_arm.eq.3.or. hadron_arm.eq.7) then
 	  spec%p%phi = 3*pi/2.
 	else if (hadron_arm.eq.2 .or. hadron_arm.eq.4 .or.
-     >		 hadron_arm.eq.5 .or. hadron_arm.eq.6) then
+     >		 hadron_arm.eq.5 .or. hadron_arm.eq.6.or. hadron_arm.eq.8) then
 	  spec%p%phi = pi/2.
 	else
 	  stop 'I dont know what phi should be for the hadron arm'
@@ -278,6 +282,9 @@ C DJG:
 	  targ%Mtar_struck = Mp
 	  targ%Mrec_struck = 0.0
 	  sign_hadron=1.0
+	  if (doing_deuterium_n) then
+	     targ%Mtar_struck = Mn
+	  endif
 	else if (doing_delta) then		!Strike (and detect) proton, pion 'recoil'
 	  targ%Mtar_struck = Mp
 	  targ%Mrec_struck = Mpi
@@ -422,7 +429,11 @@ C DJG:
 	    targ%angle = 0.0
 	    write(6,*) 'Forcing target angle to zero for cryotarget.'
 	  endif
-	  if (targ%can.ne.1 .and. targ%can.ne.2 .and.targ%can.ne.3) stop 'bad targ.can value'
+c<<<<<<< HEAD
+c	  if (targ%can.ne.1 .and. targ%can.ne.2 .and.targ%can.ne.3) stop 'bad targ.can value'
+c=======
+	  if (targ%can.gt.5) stop 'bad targ.can value'
+c>>>>>>> de9c643d7ae0f706beab49e38ac8132eef1920d8
 	endif
 	if(sin(targ%angle) .gt. 0.85) then
 	  write(6,*) 'BAD targ.angle (0 is perp. to beam, +ve is rotated towards SOS)'
@@ -516,7 +527,7 @@ C DJG:
      >		spec%p%P, Mh2, Ebeam, spec%e%P)
 
 ! ... Read in the theory file (for A(e,e'p))
-	if (doing_deuterium .or. (doing_heavy.and.(.not.use_benhar_sf))) then
+	if (doing_deuterium .or. doing_deuterium_n .or. (doing_heavy.and.(.not.use_benhar_sf))) then
 	  call theory_init(success)
 	  if (.not.success) stop 'THEORY_INIT failed!'
 	endif
@@ -645,7 +656,7 @@ C DJG:
 
 
 ! ... initialize limits on generation, cuts, edges
-
+	write(*,*) ' call limits init'
 	call limits_init(H)
 
 ! ... some announcements
@@ -655,6 +666,8 @@ C DJG:
 	    write(6,*) ' ****--------  H(e,e''p)  --------****'
 	  else if (doing_deuterium) then
 	    write(6,*) ' ****--------  D(e,e''p)  --------****'
+	  else if (doing_deuterium_n) then
+	    write(6,*) ' ****--------  D(e,e''n)  --------****'
 	  else if (doing_heavy) then
 	    write(6,*) ' ****--------  A(e,e''p)  --------****'
 	  else
@@ -800,9 +813,9 @@ c	      stop
 	else if (electron_arm.eq.6) then
 	  write(6,*) '   SHMS is detecting electrons (LSA TUNE)'
 	else if (electron_arm.eq.7) then
-	  write(6,*) '   BIGCAL is detecting electrons (HMS side of beam)'
+	  write(6,*) '   Calo is detecting electrons (HMS side of beam)'
 	else if (electron_arm.eq.8) then
-	  write(6,*) '   BIGCAL is detecting electrons (SOS side of beam)'
+	  write(6,*) '   Calo is detecting electrons (SOS side of beam)'
 	endif
 
 	if (hadron_arm.eq.1) then
@@ -817,9 +830,10 @@ c	      stop
 	  write(6,*) '   SHMS is detecting hadrons (SSA TUNE)'
 	else if (hadron_arm.eq.6) then
 	  write(6,*) '   SHMS is detecting hadrons (LSA TUNE)'
-	else if (hadron_arm.eq.7 .or. hadron_arm.eq.8) then
-	  write(6,*) ' Cannot use Bigcal for hadrons'
-	  stop
+	else if (hadron_arm.eq.7) then
+	  write(6,*) ' Calo is detecting hadrons beam right'
+	else if (hadron_arm.eq.8) then
+	  write(6,*) ' Calo is detecting hadrons beam left'
 	endif
 
 	if (hadron_arm.eq.electron_arm) then
@@ -888,6 +902,7 @@ c	      stop
 	ierr = regparmdouble('Ebeam',Ebeam,0)
 	ierr = regparmdouble('dEbeam',dEbeam,0)
 	ierr = regparmdouble('EXPER%charge',EXPER%charge,0)
+	ierr = regparmint('doing_deuterium_n',doing_deuterium_n,0)
 	ierr = regparmint('doing_kaon',doing_kaon,0)
 	ierr = regparmint('which_kaon',which_kaon,0)
 	ierr = regparmint('doing_pion',doing_pion,0)
@@ -961,6 +976,8 @@ c	      stop
 *	SIMULATE
 
 	ierr = regparmint('ngen',ngen,0)
+	ierr = regparmint('using_RS',using_RS,0)
+	ierr = regparmdouble('max_weight_RS',max_weight_RS,0)
 	ierr = regparmint('hard_cuts',hard_cuts,0)
 	ierr = regparmint('using_rad',using_rad,0)
 	ierr = regparmint('spect_mode',spect_mode,0)
@@ -989,7 +1006,8 @@ c	      stop
 	ierr = regparmdouble('sigc_kin_ind',sigc_kin_ind,0.0)
 	ierr = regparmint('using_tgt_field',using_tgt_field,0)
 	ierr = regparmstring('tgt_field_file',tgt_field_file,0)
-	ierr = regparmdouble('drift_to_cal',drift_to_cal,0)
+	ierr = regparmdouble('drift_to_cal',drift_to_cal,200)
+	ierr = regparmdouble('drift_to_cal2',drift_to_cal2,200)
 
 *	E_ARM_ACCEPT
 

@@ -10,6 +10,9 @@
 	type(event_main):: main
 	type(event):: vertex, orig, recon
 
+	real*8 vxi,vyi,vzi,vEin
+	common /reconz/ vxi,vyi,vzi,vEin
+
 !local (e,e'p) calculations:
 	real*8 poftheta		!p as calculated from theta, assuming elastic.
 	real*8 corrsing		!'corrected singles' for elastic
@@ -50,7 +53,7 @@
 !     >	    + 2*(recon.nu*recon.p.E - recon.p.P*recon.q*cos(recon.theta_pq))
 !	endif
 
-	if (doing_hyd_elast .or. doing_deuterium .or. doing_heavy) then
+	if (doing_hyd_elast .or. doing_deuterium .or. doing_deuterium_n .or. doing_heavy) then
 	  poftheta = Mp*Ebeam / (2*ebeam*sin(recon%e%theta/2.)**2 + Mp)
 	  corrsing = recon%e%P - poftheta
 	  Pm_Heepz = -(recon%Pmy*recon%uq%y+recon%Pmz*recon%uq%z)
@@ -213,7 +216,7 @@ c	  ntu(11) = vertex%p%xptar			!mr
 		ntu(58) = ntup%rhotheta
 	     endif
 	  endif
-	else if (doing_hyd_elast .or. doing_deuterium .or. doing_heavy) then
+	else if (doing_hyd_elast .or. doing_deuterium .or. doing_deuterium_n .or. doing_heavy) then
 	  ntu(34) = corrsing/1000.
 	  ntu(35) = Pm_Heepx/1000.
 	  ntu(36) = Pm_Heepy/1000.
@@ -225,6 +228,26 @@ c	  ntu(11) = vertex%p%xptar			!mr
 	  ntu(42) = ntup%radphot/1000.			!radphot - GeV
 	  ntu(43) = main%sigcc
 	  ntu(44) = main%weight
+	  ntu(45) = recon%e%p
+	  ntu(46) = recon%ue%x
+	  ntu(47) = recon%ue%y
+	  ntu(48) = recon%ue%z
+	  ntu(49) = recon%p%p
+	  ntu(50) = recon%up%x
+	  ntu(51) = recon%up%y
+	  ntu(52) = recon%up%z
+	  ntu(53) = recon%e%theta
+	  ntu(54) = recon%e%phi
+	  ntu(55) = recon%p%theta
+	  ntu(56) = recon%p%phi
+	  ntu(57) = vxi
+	  ntu(58) = vyi
+	  ntu(59) = vzi
+	  ntu(60) = vEin
+	  ntu(61) = vertex%e%E
+	  ntu(62) = vertex%e%theta
+	  ntu(63) = vertex%Q2/1.e6
+	  ntu(64) = vertex%nu/1.e3
 	endif
 
 c	call HFN(NtupleID,ntu)
