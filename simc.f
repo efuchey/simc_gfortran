@@ -7,10 +7,12 @@
 !		T. G. O'Neill (Argonne National Lab), and
 !		Seemingly Countless Others (Virtually Everywhere).
 !
+	USE structureModule
+	USE histoModule
 	implicit none
 !	include 'simulate_init.inc'
 	include 'simulate.inc'
-	include 'histograms_init.inc'
+!	include 'histograms_init.inc'
 	include 'radc.inc'
 	include 'hbook.inc'
 	include 'sos/struct_sos.inc'
@@ -621,8 +623,9 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
 
 	subroutine inc(hist,val,weight)
 
+	USE histoModule
 	implicit none
-	include 'histograms.inc'
+c	include 'histograms.inc'
 
 	integer*4		ibin
 	real*8			val, weight
@@ -641,6 +644,7 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
 	subroutine report(iun,timestring1,timestring2,central,contrib,
      >		sum_sigcc,aveerr,resol)
 
+	USE structureModule
 	implicit none
 	include 'simulate.inc'
 	include 'radc.inc'
@@ -906,11 +910,11 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
 
 ! Counters
 	write(iun,*) 'COUNTERS:'
-	write(iun,'(12x,''Ngen (request) = '',i10)') ngen
-	write(iun,'(12x,''Ntried         = '',i10)') ntried
-	write(iun,'(12x,''Ncontribute    = '',i10)') ncontribute
-	write(iun,'(12x,''Nco_no_rad_prot= '',i10)') ncontribute_no_rad_proton
-	write(iun,'(12x,''-> %no_rad_prot= '',f10.3)')
+	write(iun,'(12x,''Ngen (request) = '',i15)') ngen
+	write(iun,'(12x,''Ntried         = '',i15)') ntried
+	write(iun,'(12x,''Ncontribute    = '',i15)') ncontribute
+	write(iun,'(12x,''Nco_no_rad_prot= '',i15)') ncontribute_no_rad_proton
+	write(iun,'(12x,''-> %no_rad_prot= '',f15.3)')
      >		(100.*ncontribute_no_rad_proton/max(dble(ncontribute),0.1e0))
 	write(iun,'(/1x,''INTEGRATED WEIGHTS (number of counts in delta/Em cuts!):'')')
 	write(iun,'(1x,''              MeV: wtcontr= '',e16.8)') wtcontribute/nevent
@@ -1154,6 +1158,7 @@ c	  write(7,*) 'BP thingie in/out     ',shmsSTOP_BP_in,shmsSTOP_BP_out
 
 	subroutine calculate_central(central,vertex0)
 
+	USE structureModule
 	implicit none
 	include 'simulate.inc'
 	include 'radc.inc'
@@ -1310,6 +1315,7 @@ c	enddo
 
 	subroutine montecarlo(orig,main,recon,success)
 
+	USE structureModule
 	implicit none
 	include 'simulate.inc'
 
